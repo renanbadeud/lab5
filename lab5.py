@@ -11,14 +11,78 @@ import threading
 import multiprocessing
 import logging
 import random
+from Crypto.Hash import SHA256
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.PublicKey import RSA
 
 clients=[
-{"broker":"127.0.0.1","port":1883,"name":"blank","sub_topic":['ppd/pubkey']},
-{"broker":"127.0.0.1","port":1883,"name":"blank","sub_topic":['ppd/pubkey']}
+{"broker":"127.0.0.1","port":1883,"name":"blank","sub_topic":['ppd/pubkey'],"pub_key":"""MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCncrg200X3/ISEBDso1DSkWBoa
+HJOasq/Gd7/VmrDjmH5XOHcs/jN9Ncy7ViNSVtpej0Prqq879griM+GKiF6l3Dl6
+DJfVOdDSvNcTwbW9A01umzeyKIg9cLKV9djC1QU+8RFDnyhr2ccOQChYy4j/oAKU
+QdcE6tLBiaWadRvAkQIDAQAB""",
+ "priv_key":"""MIICXQIBAAKBgQCncrg200X3/ISEBDso1DSkWBoaHJOasq/Gd7/VmrDjmH5XOHcs
+/jN9Ncy7ViNSVtpej0Prqq879griM+GKiF6l3Dl6DJfVOdDSvNcTwbW9A01umzey
+KIg9cLKV9djC1QU+8RFDnyhr2ccOQChYy4j/oAKUQdcE6tLBiaWadRvAkQIDAQAB
+AoGBAIUdIqqa6/2HJcVZI7qCb9LSIvXtD74kHK421i61ybc0rAMkZUFEV6RLF5U5
+ldzIJNKVK5Z2WtXc86v9OGgLnskMWgQQii6laX549ndibLc1eKwfmvLnNen1zYgt
+91z32fGVfh7DyofCiT0N55sr3w1dU+8KND9tZloDwOi1w76tAkEA1hG2sEEGgd4r
+zMpiexc18IcWOsf++RZ6YoZ9CH1c+jYAZZJJ9+RHr1NhR6qZ/KXPVX/K4jxiG1Fe
+RL5iMC5hVwJBAMg/PSUCZg7qRldsvULOQuZBzfIqyZONcy3l0ke3u2CDKbuvsssE
+V/2TKO7viDMaChM+qncotU67i2dnHyglNFcCQQCtL+WKUQFPvgvXggEMrqmP7+pX
+IgixQrM+1KmBXdMEBv5pLmIzcHdia+WvEmHEWe0Use/U+p8wlLLckN5lNpC/AkBB
+sJUjXe0S+YGHznEryDQkCvQ/fA/SarWdGeZohnpeh8iZ/GI/vTYMRklIUKWyddlW
+RNlw65bGtDlf+3E6HzJTAkAmtS4YuJPQbgIF/5npWjTAlhwfRHpTRVuLjIGI9PsU
+3Z7V8zfqjvudRo1TpKQpZLcpfGmfmJu20fTd48hm9wDU"""},
+{"broker":"127.0.0.1","port":1883,"name":"blank","sub_topic":['ppd/pubkey'],"pub_key":"""MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDFLnnDS4pxThwFRj4A9DG29SB9
+vkra5z0sCIcyEtaAZMveqIidGrp7eC6d5sFbcE2cRQNtGJOktNuiLnuWd5YkASdd
+4ifar6HyaJf3AvUGxqVnLlu/t3+7YjaZzfXxYGCKLLCJDKjQE5CAipHbQFzuhSno
+VJeQu32C83AxxhinHQIDAQAB""","priv_key":"""MIICXQIBAAKBgQDFLnnDS4pxThwFRj4A9DG29SB9vkra5z0sCIcyEtaAZMveqIid
+Grp7eC6d5sFbcE2cRQNtGJOktNuiLnuWd5YkASdd4ifar6HyaJf3AvUGxqVnLlu/
+t3+7YjaZzfXxYGCKLLCJDKjQE5CAipHbQFzuhSnoVJeQu32C83AxxhinHQIDAQAB
+AoGBAKGFub7OAaFhP7jeWmpDnvnlgPEgUYdSBx0r+zt8jPPuHcbOPeKcA4ii4WT9
+owS5UQoiynSyvjcc5BHNi/WtDnIMN+C9J/q/i7e5Whr+LuzIX8QF7Pq1w2Gh6api
+VK0t716wmNV9aGraD/HuVe5bPF9S0jkNMUbHraKHUqWjbHCBAkEA9u0ufroL6sjO
+RBQm22eLu4JtZoUOyw2cItmFGWD/LlUGwAu2YycyPv78SVEOr9lEX8UzZvF6JaSG
+aM4K09AWYQJBAMxtWN/rEZB7gl+vGHzEZT/w5jFfHwuOMBpbsRrEVp0WQQNKI4pd
+Ac92VzR6k448ehjfkbmPbZyaSKNsntjAkj0CQHSfdwtBgallKA59WhDcKeHo6xS1
+mVQL3IeVJsjiyAMxA1wm7ACOnaulMLDMCNzDCAkXkXx4ZpFq0FSlo/WAXWECQAG5
+lntlN2O5txLpnlJHMfeFJ9wYymFFlOBUD72DFJwEuQ23DW+4czB19ixqMF6N4hXd
+pRQkwq8EmkJOw1Re450CQQDT6//VEJeNJPRtcEiy/ajpQdHrI+abhGgl64OaPxRR
+NU4f454elvTxuUsGYJE7cBBHluBlT9weiJcJ6eLAePWu"""}
 ]
 
 nclients=len(clients)
 
+
+def assina(message,priv_key):
+   digest = SHA256.new()
+   digest.update(message.encode('utf-8'))
+
+   # Load private key previouly generated
+
+   # Sign the message
+   signer = PKCS1_v1_5.new(priv_key)
+   sig = signer.sign(digest)
+
+   # sig is bytes object, so convert to hex string.
+   # (could convert using b64encode or any number of ways)
+   print("Signature: ")
+   print(sig.hex())
+
+def verifica(message,pub_key):
+       # message = "I want this stream signed"
+   
+   digest = SHA256.new()
+   digest.update(message.encode('utf-8'))
+
+   sig = input('Enter signature: ')
+   sig = bytes.fromhex(sig)  # convert string to bytes object
+
+   # Load public key (not private key) and verify signature
+   verifier = PKCS1_v1_5.new(pub_key)
+   verified = verifier.verify(digest, sig)
+
+   
 
 def on_message(client, userdata, message):
     time.sleep(1)
@@ -98,7 +162,8 @@ try:
     while Run_Flag:
          for i in range(nclients):
             client=clients[i]["client"]
-            msg=clients[i]["client_id"]+ ":" + "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC9wA27p3MJGj2uNLT8mpET4FjRWS8pe2LTVx1owJmb0Q3WPKoDjVKG1EsluHXWLR72KvYsD1lr8S6XhFR5uLa8DY5JvaBBY2XQrOqAvAbaNTPYebkj2346g3SnOCI25NnnItNv7xJKibo59ObgzbEr9Chkn4HOp0FRi+P9ANDTawIDAQAB"
+            
+            msg=clients[i]["client_id"]+ ":" + clients[i]["pub_key"]
             if client.connected_flag:
                client.publish('ppd/pubkey',msg,qos=2)
                time.sleep(1)
@@ -112,6 +177,11 @@ except KeyboardInterrupt:
 for client in clients:
    client.disconnect()
    client.loop_stop()
+#allow time for allthreads to stop before existing
+time.sleep(10)               
+                                 
+         
+         
 #allow time for allthreads to stop before existing
 time.sleep(10)               
                                  
